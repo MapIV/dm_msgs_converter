@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'aw_dm_converter = dm_object_converter.aw_dm_converter:main',
         ],
     },
 )

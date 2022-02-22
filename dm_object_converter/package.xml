@@ -8,7 +8,11 @@
   <license>Apache 2</license>
 
   <exec_depend>rclpy</exec_depend>
+
   <exec_depend>autoware_perception_msgs</exec_depend>
+  <exec_depend>dm_freespace_info_msgs</exec_depend>
+  <exec_depend>dm_object_info_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

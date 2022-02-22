@@ -2,33 +2,42 @@ import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String
+from autoware_perception_msgs.msg import DynamicObjectWithFeature
+from autoware_perception_msgs.msg import DynamicObjectWithFeatureArray
+from unique_identifier_msgs.msg import UUID
+from autoware_perception_msgs.msg import DynamicObject
+from autoware_perception_msgs.msg import DynamicObjectArray
+from dm_object_info_msgs.msg import ObjectInfo
 
-class MinimalSubscriber(Node):
+
+class AwDmConverter(Node):
 
     def __init__(self):
-        super().__init__('minimal_subscriber')
-        self.subscription = self.create_subscription(
-            String,
-            'topic',
-            self.listener_callback,
-            10)
-        self.subscription  # prevent unused variable warning
+        super().__init__('aw_dm_converter')
+        self.publisher_ = self.create_publisher(String, 'topic', 10)
 
-    def listener_callback(self, msg):
-        self.get_logger().info('I heard: "%s"' % msg.data)
+        self.subscription = self.create_subscription(
+            DynamicObjectWithFeatureArray,
+            '/labeled_clusters',
+            self.aw_perception_callback,
+            10)
+
+    def aw_perception_callback(self, aw_msg):
+        if len(aw_msg.feature_objects) > 0:
+            self.get_logger().info("Message Received")
+            msg = String()
+            msg.data = f"{aw_msg.feature_objects[0].object.id}"
+            self.publisher_.publish(msg)
 
 
 def main(args=None):
     rclpy.init(args=args)
 
-    minimal_subscriber = MinimalSubscriber()
+    aw_dm_conv = AwDmConverter()
 
-    rclpy.spin(minimal_subscriber)
+    rclpy.spin(aw_dm_conv)
 
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    minimal_subscriber.destroy_node()
+    aw_dm_conv.destroy_node()
     rclpy.shutdown()
 
 
