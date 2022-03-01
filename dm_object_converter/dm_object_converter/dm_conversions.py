@@ -1,6 +1,7 @@
 # Perception Engine Inc. 2022
 
 import datetime
+import math
 
 from rclpy.time import Time
 import dm_object_info_msgs.msg
@@ -10,13 +11,64 @@ from dm_object_info_msgs.msg import ObjectClass
 from dm_object_info_msgs.msg import ClassId
 from dm_object_info_msgs.msg import TimestampIts
 from dm_object_info_msgs.msg import Location
+from dm_object_info_msgs.msg import WGS84Angle
+from dm_object_info_msgs.msg import Speed
+from dm_object_info_msgs.msg import YawRate
+from dm_object_info_msgs.msg import ObjectSize
 
 from geo_utils import *
+import transformations as ros_tf
 
 ALTITUDE_UNAVAILABLE = 0.800001
 
 
-def aw_position_to_dm_location(dynamic_object: DynamicObject, altitude=ALTITUDE_UNAVAILABLE) -> Location:
+def aw_shape_to_dm_size(dynamic_object: DynamicObject) -> ObjectSize:
+    from dm_object_info_msgs.msg import ObjectDimensionAccuracy
+    size = ObjectSize()  # 0,1 m
+    size.width.value = dynamic_object.shape.dimensions.y * 10
+    size.width.accuracy = int(ObjectDimensionAccuracy.MAX * 0.8)
+    size.height.value = dynamic_object.shape.dimensions.z * 10
+    size.height.accuracy = int(ObjectDimensionAccuracy.MAX * 0.8)
+    size.length.value = dynamic_object.shape.dimensions.x * 10
+    size.length.accuracy = int(ObjectDimensionAccuracy.MAX * 0.8)
+    return size
+
+
+def aw_twist_to_dm_yaw_rate(dynamic_object: DynamicObject) -> YawRate:
+    from dm_object_info_msgs.msg import YawRateAccuracy
+    yaw_rate = YawRate()
+
+    tmp_yaw = math.degrees(math.sqrt(dynamic_object.state.twist_covariance.twist.angular.x *
+                                     dynamic_object.state.twist_covariance.twist.angular.x +
+                                     dynamic_object.state.twist_covariance.twist.angular.y *
+                                     dynamic_object.state.twist_covariance.twist.angular.y))
+    yaw_rate.value = tmp_yaw * 100  # 0,01 degree per second
+    yaw_rate.accuracy.value = YawRateAccuracy.MAX
+    return yaw_rate
+
+
+def aw_twist_to_dm_speed(dynamic_object: DynamicObject) -> Speed:
+    from dm_object_info_msgs.msg import SpeedAccuracy
+    speed = Speed()
+    tmp_speed = math.sqrt(dynamic_object.state.twist_covariance.twist.linear.x *
+                          dynamic_object.state.twist_covariance.twist.linear.x +
+                          dynamic_object.state.twist_covariance.twist.linear.y *
+                          dynamic_object.state.twist_covariance.twist.linear.y)
+    speed.value = tmp_speed * 100  # 0,01 m/s units
+    speed.accuracy.value = SpeedAccuracy.MAX
+    return speed
+
+
+def aw_direction_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
+    angle = WGS84Angle()
+    # angle.value
+    # ros_tf.euler_from_quaternion()
+    # dynamic_object.state.pose_covariance.pose.orientation
+
+    return angle
+
+
+def aw_position_to_dm_location(dynamic_object: DynamicObject, altitude: float = ALTITUDE_UNAVAILABLE) -> Location:
     dm_location = Location()
     dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
     lat, long = xyp_to_lat_lon(dynamic_object.state.pose_covariance.pose.position.x,

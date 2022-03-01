@@ -32,7 +32,7 @@ class AwDmConverter(Node):
         self.declare_parameter('plane_number', 7)
         self.publisher_ = self.create_publisher(String, 'topic', 10)
         self.dm_publisher_ = self.create_publisher(ObjectInfoArray, 'dm_objects', 10)
-        self._altitude = 800001  # Unknown
+        self._altitude = 0.800001  # Unknown
         # PARAMS:
         # - altitude NMEA
         # - reference point (x, y, z)
@@ -60,6 +60,16 @@ class AwDmConverter(Node):
             # 物標位置
             dm_object.object_location = aw_position_to_dm_location(aw_dynamic_object, self._altitude)
             # 物標参照位置 dm_object.ref_point.value = UNKNOWN
+            # 移動方向 Heading WGS84Angle
+            dm_object.direction = aw_direction_to_dm_direction(aw_dynamic_object)
+            # 速さ Speed
+            dm_object.speed = aw_twist_to_dm_speed(aw_dynamic_object)
+            # 回転速度 YawRate
+            dm_object.yaw_rate = aw_twist_to_dm_yaw_rate(aw_dynamic_object)
+            # 前後加速度 Acceleration dm_object.acceleration UNKNOWN
+            # 物標の向き WGS84Angle dm_object.orientation UNKNOWN
+            # 物標のサイズ
+            dm_object.size = aw_shape_to_dm_size(aw_dynamic_object)
             # 物標の色 dm_object.color = ObjectColor.UNKNOWN
             # 前輪舵角 dm_object.steering_angle_front = SteeringAngle.UNKNOWN
             # 後輪舵角 dm_object.steering_angle_rear = SteeringAngle.UNKNOWN
