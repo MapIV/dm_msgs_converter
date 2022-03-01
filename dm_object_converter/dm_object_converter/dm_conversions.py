@@ -59,11 +59,30 @@ def aw_twist_to_dm_speed(dynamic_object: DynamicObject) -> Speed:
     return speed
 
 
-def aw_direction_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
+def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
+    from dm_object_info_msgs.msg import WGS84AngleAccuracy
     angle = WGS84Angle()
     # angle.value
-    # ros_tf.euler_from_quaternion()
-    # dynamic_object.state.pose_covariance.pose.orientation
+    roll, pitch, yaw = ros_tf.euler_from_quaternion([dynamic_object.state.pose_covariance.pose.orientation.x,
+                                                     dynamic_object.state.pose_covariance.pose.orientation.y,
+                                                     dynamic_object.state.pose_covariance.pose.orientation.z,
+                                                     dynamic_object.state.pose_covariance.pose.orientation.w])
+
+    # WGS84 測地系における方位。
+    # 北を 0 とし，東回りで，0.01 度単位で表す。
+    # 具体的な表現値は以下の通り。
+    # 0: 北
+    # ……
+    # 9000: 東
+    # ……
+    # 18000: 南
+    # ……
+    # 27000: 西
+    # ……
+    # 36000: 使用しない
+    # 36001: 不明
+    angle.value = yaw
+    angle.accuracy.value = int(WGS84AngleAccuracy.MAX * 0.8)
 
     return angle
 
