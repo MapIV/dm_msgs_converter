@@ -1,58 +1,82 @@
-import rclpy
-from rclpy.node import Node
+# Perception Engine Inc. 2022
 
+import rclpy
+
+from rclpy.node import Node
 from std_msgs.msg import String
-from autoware_perception_msgs.msg import DynamicObjectWithFeature
-from autoware_perception_msgs.msg import DynamicObjectWithFeatureArray
-from unique_identifier_msgs.msg import UUID
-from autoware_perception_msgs.msg import DynamicObject
-from autoware_perception_msgs.msg import Semantic
-from autoware_perception_msgs.msg import DynamicObjectArray
+from std_msgs.msg import Header
+
+import dm_object_info_msgs.msg
+from dm_object_info_msgs.msg import ObjectId
+from dm_object_info_msgs.msg import ObjectColor
 from dm_object_info_msgs.msg import ObjectInfo
 from dm_object_info_msgs.msg import ObjectInfoArray
-from dm_object_info_msgs.msg import ObjectClass
-from dm_object_info_msgs.msg import ClassId
+from dm_object_info_msgs.msg import SteeringAngle
+from dm_object_info_msgs.msg import BrakeState
+from dm_object_info_msgs.msg import AuxiliaryBrakeState
+from dm_object_info_msgs.msg import ThrottlePosition
+from dm_object_info_msgs.msg import ExteriorLights
+from dm_object_info_msgs.msg import VehicleRole
+from dm_object_info_msgs.msg import VehicleExtendedInformation
+
+from autoware_perception_msgs.msg import DynamicObjectWithFeatureArray
+from autoware_perception_msgs.msg import DynamicObjectWithFeature
+
+from dm_conversions import *
 
 
 class AwDmConverter(Node):
 
     def __init__(self):
         super().__init__('aw_dm_converter')
+        self.declare_parameter('plane_number', 7)
         self.publisher_ = self.create_publisher(String, 'topic', 10)
-
+        self.dm_publisher_ = self.create_publisher(ObjectInfoArray, 'dm_objects', 10)
+        self._altitude = 800001  # Unknown
+        # PARAMS:
+        # - altitude NMEA
+        # - reference point (x, y, z)
         self.subscription = self.create_subscription(
             DynamicObjectWithFeatureArray,
             '/labeled_clusters',
             self.aw_perception_callback,
             10)
 
-    def aw_class_to_dm(self, dynamic_object: DynamicObject):
-        dm_object_class = ObjectClass()
-        if dynamic_object.semantic.type == Semantic.CAR \
-                or dynamic_object.semantic.type == Semantic.TRUCK \
-                or dynamic_object.semantic.type == Semantic.BUS \
-                or dynamic_object.semantic.type == Semantic.BICYCLE \
-                or dynamic_object.semantic.type == Semantic.MOTORBIKE:
-            dm_object_class.id.value = ClassId.VEHICLE
-        if dynamic_object.semantic.type == Semantic.PEDESTRIAN:
-            dm_object_class.id.value = ClassId.PERSON
-        if dynamic_object.semantic.type == Semantic.ANIMAL:
-            dm_object_class.id.value = ClassId.ANIMAL
-        if dynamic_object.semantic.type == Semantic.UNKNOWN:
-            dm_object_class.id.value = ClassId.OTHER
-        dm_object_class.confidence.value = dynamic_object.semantic.confidence*100
-        if dm_object_class.confidence.value > 100:
-            dm_object_class.confidence.value = 100
-        return dm_object_class, dm_object_class.confidence.value
-
     def aw_perception_callback(self, aw_msg: DynamicObjectWithFeatureArray):
-        for dynamic_object in aw_msg.feature_objects:
+        dm_object_info_array = ObjectInfoArray()
+        for aw_dynamic_object in aw_msg.feature_objects:
             dm_object = ObjectInfo()
+            # 物標 ID REQUIRED
             # AW uses uuid (big endian), but dm uses uint64, use only the 64 most significant bits
-            dm_object.id = int.from_bytes(dynamic_object.id.uuid[:8], 'big')
-            object_class, confidence = self.aw_class_to_dm(dynamic_object)
+            dm_object.id.value = int.from_bytes(aw_dynamic_object.id.uuid[:8], 'big')
+            # 情報取得時刻［必須］Timestamp REQUIRED
+            # DE_TimestampIts: Number of milliseconds since 2004-01-01T00:00:00.000Z
+            dm_object.time.value = ros_stamp_to_de_time(aw_msg.header.stamp)
+            # 物標種別 OPTIONAL
+            object_class, confidence = aw_class_to_dm_object_class(aw_dynamic_object)
             dm_object.object_class.append(object_class)
+            # 存在信頼度 OPTIONAL
             dm_object.existency = confidence
+            # 物標位置
+            dm_object.object_location = aw_position_to_dm_location(aw_dynamic_object, self._altitude)
+            # 物標参照位置 dm_object.ref_point.value = UNKNOWN
+            # 物標の色 dm_object.color = ObjectColor.UNKNOWN
+            # 前輪舵角 dm_object.steering_angle_front = SteeringAngle.UNKNOWN
+            # 後輪舵角 dm_object.steering_angle_rear = SteeringAngle.UNKNOWN
+            # ブレーキ状態 dm_object.brake_state = BrakeState.UNKNOWN
+            # 補助ブレーキ状態 dm_object.auxiliary_brake_state = AuxiliaryBrakeState.UNKNOWN
+            # アクセルペダル開度 dm_object.throttle_position = ThrottlePosition.UNKNOWN
+            # 灯火の状態 dm_object.exterior_lights = ExteriorLights.UNKNOWN
+            # 各種のシステムの作動状態 Default UNKNOWN
+            # 車両用途種別 dm_object.vehicle_role = VehicleRole.UNKNOWN
+            # 車両用途種別毎の状態 dm_object.vehicle_extended_info = VehicleExtendedInformation.UNKNOWN
+            # 牽引車両 dm_object.towing_vehicle = ObjectId.UNKNOWN
+            # 情報源のリスト
+
+            # Add complete object to the array
+            dm_object_info_array.array.append(dm_object)
+        # end foreach
+        self.dm_publisher_.publish(dm_object_info_array)
 
 
 def main(args=None):
