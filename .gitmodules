@@ -1,7 +1,0 @@
-[submodule "dm_msgs"]
-	path = dm_msgs
-	url = https://gitlab.com/perceptionengine/dynamic_map/dm_msgs.git
-[submodule "autoware_iv_msgs"]
-	path = autoware_iv_msgs
-	url = https://gitlab.com/perceptionengine/autoware/autoware_iv_msgs.git
-	branch = ros2
