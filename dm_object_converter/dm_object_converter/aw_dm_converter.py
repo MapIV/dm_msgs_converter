@@ -22,23 +22,23 @@ from dm_object_info_msgs.msg import VehicleExtendedInformation
 from autoware_perception_msgs.msg import DynamicObjectWithFeatureArray
 from autoware_perception_msgs.msg import DynamicObjectWithFeature
 
-from dm_conversions import *
+from .dm_conversions import *
 
+VENDOR_ID = 777777
 
 class AwDmConverter(Node):
 
     def __init__(self):
         super().__init__('aw_dm_converter')
-        self.declare_parameter('plane_number', 7)
-        self.publisher_ = self.create_publisher(String, 'topic', 10)
-        self.dm_publisher_ = self.create_publisher(ObjectInfoArray, 'dm_objects', 10)
-        self._altitude = 0.800001  # Unknown
+        self._plane_number = self.declare_parameter('plane_number', 7).value
+        self._altitude = self.declare_parameter('altitude', 0.800001).value # Unknown
+        self.dm_publisher_ = self.create_publisher(ObjectInfoArray, 'output', 10)
         # PARAMS:
         # - altitude NMEA
         # - reference point (x, y, z)
         self.subscription = self.create_subscription(
             DynamicObjectWithFeatureArray,
-            '/labeled_clusters',
+            'input',
             self.aw_perception_callback,
             10)
 
@@ -58,7 +58,9 @@ class AwDmConverter(Node):
             # 存在信頼度 OPTIONAL
             dm_object.existency = confidence
             # 物標位置
-            dm_object.object_location = aw_position_to_dm_location(aw_dynamic_object, self._altitude)
+            dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object,
+                                                                   altitude=self._altitude,
+                                                                   plane_number=self._plane_number)
             # 物標参照位置 dm_object.ref_point.value = UNKNOWN
             # 移動方向 Heading WGS84Angle
             dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object)
@@ -82,6 +84,9 @@ class AwDmConverter(Node):
             # 車両用途種別毎の状態 dm_object.vehicle_extended_info = VehicleExtendedInformation.UNKNOWN
             # 牽引車両 dm_object.towing_vehicle = ObjectId.UNKNOWN
             # 情報源のリスト
+            data_source = ObjectId()
+            data_source.value = VENDOR_ID
+            dm_object.information_source_list.append()
 
             # Add complete object to the array
             dm_object_info_array.array.append(dm_object)

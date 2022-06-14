@@ -16,8 +16,8 @@ from dm_object_info_msgs.msg import Speed
 from dm_object_info_msgs.msg import YawRate
 from dm_object_info_msgs.msg import ObjectSize
 
-from geo_utils import *
-import transformations as ros_tf
+from .geo_utils import *
+from .transformations import *
 
 ALTITUDE_UNAVAILABLE = 0.800001
 
@@ -63,7 +63,7 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
     from dm_object_info_msgs.msg import WGS84AngleAccuracy
     angle = WGS84Angle()
     # angle.value
-    roll, pitch, yaw = ros_tf.euler_from_quaternion([dynamic_object.state.pose_covariance.pose.orientation.x,
+    roll, pitch, yaw = euler_from_quaternion([dynamic_object.state.pose_covariance.pose.orientation.x,
                                                      dynamic_object.state.pose_covariance.pose.orientation.y,
                                                      dynamic_object.state.pose_covariance.pose.orientation.z,
                                                      dynamic_object.state.pose_covariance.pose.orientation.w])
@@ -87,11 +87,14 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
     return angle
 
 
-def aw_position_to_dm_location(dynamic_object: DynamicObject, altitude: float = ALTITUDE_UNAVAILABLE) -> Location:
+def aw_position_to_dm_location(dynamic_object: DynamicObject,
+                               altitude: float = ALTITUDE_UNAVAILABLE,
+                               plane_number: int = 7) -> Location:
     dm_location = Location()
     dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
-    lat, long = xyp_to_lat_lon(dynamic_object.state.pose_covariance.pose.position.x,
-                               dynamic_object.state.pose_covariance.pose.position.y)
+    lat, long = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
+                               y=dynamic_object.state.pose_covariance.pose.position.y,
+                               plane_num=plane_number)
     dm_location.latitude = lat * 1e6
     dm_location.longitude = long * 1e6
     dm_location.altitude = altitude * 1e6
