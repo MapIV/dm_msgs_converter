@@ -102,7 +102,6 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
     # 36001: 不明
     dm_angle = WGS84AngleValue()
     tmp = abs(int(math.degrees(yaw) * 100))
-    print(tmp)
     dm_angle.value = tmp
     angle.value = dm_angle
     angle.accuracy.value = int(WGS84AngleAccuracy.MAX * 0.8)
@@ -119,7 +118,7 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
 
     dm_location = Location()
     dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
-    lat, long = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
+    lat, longi = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
                                y=dynamic_object.state.pose_covariance.pose.position.y,
                                plane_num=plane_number)
     dm_latitude = Latitude()
@@ -127,16 +126,17 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
     dm_altitude = Altitude()
 
     dm_latitude.value =int(lat * 1e6)
-    dm_longitude.value = int(long * 1e6)
+    dm_longitude.value = int(longi * 1e6)
     dm_altitude.value = int(altitude * 1e6)
 
     dm_location.latitude = dm_latitude
     dm_location.longitude = dm_longitude
     dm_location.altitude = dm_altitude
 
+    # TODO: DISTANCE from sensor?
     dm_location.crp_id.value = 0  # Unknown
-    dm_location.dx_crp.value = int(dynamic_object.state.pose_covariance.pose.position.x * 1e6)
-    dm_location.dy_crp.value = int(dynamic_object.state.pose_covariance.pose.position.y * 1e6)
+    dm_location.dx_crp.value = 0 # int(dynamic_object.state.pose_covariance.pose.position.x * 1e6)
+    dm_location.dy_crp.value = 0 # int(dynamic_object.state.pose_covariance.pose.position.y * 1e6)
 
     # dm_location.lane_count.value =
     # dm_location.lane_position.value =

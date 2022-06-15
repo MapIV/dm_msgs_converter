@@ -47,45 +47,48 @@ class AwDmConverter(Node):
         dm_object_info_array = ObjectInfoArray()
         for aw_dynamic_object in aw_msg.feature_objects:
             dm_object = ObjectInfo()
-            # 物標 ID REQUIRED
-            # AW uses uuid (big endian), but dm uses uint64, use only the 64 most significant bits
-            dm_object.id.value = int.from_bytes(aw_dynamic_object.object.id.uuid[:8], 'big')
-            # 情報取得時刻［必須］Timestamp REQUIRED
-            # DE_TimestampIts: Number of milliseconds since 2004-01-01T00:00:00.000Z
-            dm_object.time = ros_stamp_to_de_time(aw_msg.header.stamp)
-            # 物標種別 OPTIONAL
-            object_class, confidence = aw_class_to_dm_object_class(aw_dynamic_object.object)
-            dm_object.object_class.append(object_class)
-            # 存在信頼度 OPTIONAL
-            existency = ExistenceConfidence()
-            existency.value = confidence
-            dm_object.existency = existency
-            # 物標位置
-            dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
-                                                                   altitude=self._altitude,
-                                                                   plane_number=self._plane_number)
-            # 物標参照位置 dm_object.ref_point.value = UNKNOWN
-            # 移動方向 Heading WGS84Angle
-            dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object.object)
-            # 速さ Speed
-            dm_object.speed = aw_twist_to_dm_speed(aw_dynamic_object.object)
-            # 回転速度 YawRate
-            dm_object.yaw_rate = aw_twist_to_dm_yaw_rate(aw_dynamic_object.object)
-            # 前後加速度 Acceleration dm_object.acceleration UNKNOWN
-            # 物標の向き WGS84Angle dm_object.orientation UNKNOWN
-            # 物標のサイズ
-            dm_object.size = aw_shape_to_dm_size(aw_dynamic_object.object)
-            # 物標の色 dm_object.color = ObjectColor.UNKNOWN
-            # 前輪舵角 dm_object.steering_angle_front = SteeringAngle.UNKNOWN
-            # 後輪舵角 dm_object.steering_angle_rear = SteeringAngle.UNKNOWN
-            # ブレーキ状態 dm_object.brake_state = BrakeState.UNKNOWN
-            # 補助ブレーキ状態 dm_object.auxiliary_brake_state = AuxiliaryBrakeState.UNKNOWN
-            # アクセルペダル開度 dm_object.throttle_position = ThrottlePosition.UNKNOWN
-            # 灯火の状態 dm_object.exterior_lights = ExteriorLights.UNKNOWN
-            # 各種のシステムの作動状態 Default UNKNOWN
-            # 車両用途種別 dm_object.vehicle_role = VehicleRole.UNKNOWN
-            # 車両用途種別毎の状態 dm_object.vehicle_extended_info = VehicleExtendedInformation.UNKNOWN
-            # 牽引車両 dm_object.towing_vehicle = ObjectId.UNKNOWN
+            try:
+                # 物標 ID REQUIRED
+                # AW uses uuid (big endian), but dm uses uint64, use only the 64 most significant bits
+                dm_object.id.value = int.from_bytes(aw_dynamic_object.object.id.uuid[:8], 'big')
+                # 情報取得時刻［必須］Timestamp REQUIRED
+                # DE_TimestampIts: Number of milliseconds since 2004-01-01T00:00:00.000Z
+                dm_object.time = ros_stamp_to_de_time(aw_msg.header.stamp)
+                # 物標種別 OPTIONAL
+                object_class, confidence = aw_class_to_dm_object_class(aw_dynamic_object.object)
+                dm_object.object_class.append(object_class)
+                # 存在信頼度 OPTIONAL
+                existency = ExistenceConfidence()
+                existency.value = confidence
+                dm_object.existency = existency
+                # 物標位置
+                dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
+                                                                       altitude=self._altitude,
+                                                                       plane_number=self._plane_number)
+                # 物標参照位置 dm_object.ref_point.value = UNKNOWN
+                # 移動方向 Heading WGS84Angle
+                dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object.object)
+                # 速さ Speed
+                dm_object.speed = aw_twist_to_dm_speed(aw_dynamic_object.object)
+                # 回転速度 YawRate
+                dm_object.yaw_rate = aw_twist_to_dm_yaw_rate(aw_dynamic_object.object)
+                # 前後加速度 Acceleration dm_object.acceleration UNKNOWN
+                # 物標の向き WGS84Angle dm_object.orientation UNKNOWN
+                # 物標のサイズ
+                dm_object.size = aw_shape_to_dm_size(aw_dynamic_object.object)
+                # 物標の色 dm_object.color = ObjectColor.UNKNOWN
+                # 前輪舵角 dm_object.steering_angle_front = SteeringAngle.UNKNOWN
+                # 後輪舵角 dm_object.steering_angle_rear = SteeringAngle.UNKNOWN
+                # ブレーキ状態 dm_object.brake_state = BrakeState.UNKNOWN
+                # 補助ブレーキ状態 dm_object.auxiliary_brake_state = AuxiliaryBrakeState.UNKNOWN
+                # アクセルペダル開度 dm_object.throttle_position = ThrottlePosition.UNKNOWN
+                # 灯火の状態 dm_object.exterior_lights = ExteriorLights.UNKNOWN
+                # 各種のシステムの作動状態 Default UNKNOWN
+                # 車両用途種別 dm_object.vehicle_role = VehicleRole.UNKNOWN
+                # 車両用途種別毎の状態 dm_object.vehicle_extended_info = VehicleExtendedInformation.UNKNOWN
+                # 牽引車両 dm_object.towing_vehicle = ObjectId.UNKNOWN
+            except:
+                print("dm exception catched")
             # 情報源のリスト
             data_source = ObjectId()
             data_source.value = VENDOR_ID
