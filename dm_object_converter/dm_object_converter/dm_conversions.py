@@ -170,9 +170,11 @@ def aw_class_to_dm_object_class(dynamic_object: DynamicObject) -> (ObjectClass, 
         dm_object_class.id.value = ClassId.ANIMAL
     if dynamic_object.semantic.type == Semantic.UNKNOWN:
         dm_object_class.id.value = ClassId.OTHER
-    dm_object_class.confidence.value = int(dynamic_object.semantic.confidence * 100)
-    if dm_object_class.confidence.value > 100:
-        dm_object_class.confidence.value = 100
+    tmp = int(dynamic_object.semantic.confidence * 10)
+    if tmp > 100:
+        tmp = 100
+    dm_object_class.confidence.value = tmp
+
     return dm_object_class, dm_object_class.confidence.value
 
 

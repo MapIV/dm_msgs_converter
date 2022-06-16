@@ -87,8 +87,8 @@ class AwDmConverter(Node):
                 # 車両用途種別 dm_object.vehicle_role = VehicleRole.UNKNOWN
                 # 車両用途種別毎の状態 dm_object.vehicle_extended_info = VehicleExtendedInformation.UNKNOWN
                 # 牽引車両 dm_object.towing_vehicle = ObjectId.UNKNOWN
-            except:
-                print("dm exception catched")
+            except Exception as e:
+                print("dm exception:", e)
             # 情報源のリスト
             data_source = ObjectId()
             data_source.value = VENDOR_ID
