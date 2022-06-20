@@ -118,17 +118,17 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
 
     dm_location = Location()
     dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
-    lat, longi = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
+    longi, lat  = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
                                y=dynamic_object.state.pose_covariance.pose.position.y,
                                plane_num=plane_number)
+
     dm_latitude = Latitude()
     dm_longitude = Longitude()
     dm_altitude = Altitude()
 
-    dm_latitude.value =int(lat * 1e6)
-    dm_longitude.value = int(longi * 1e6)
-    dm_altitude.value = int(altitude * 1e6)
-
+    dm_latitude.value =int(lat * 1e7)
+    dm_longitude.value = int(longi * 1e7)
+    dm_altitude.value = int(altitude * 1e2)
     dm_location.latitude = dm_latitude
     dm_location.longitude = dm_longitude
     dm_location.altitude = dm_altitude
@@ -180,7 +180,9 @@ def aw_class_to_dm_object_class(dynamic_object: DynamicObject) -> (ObjectClass, 
 
 def ros_stamp_to_de_time(ros_stamp: Time) -> TimestampIts:
     dm_time = TimestampIts()
-    de_ts_ms = datetime.datetime(2004, 1, 1, 0, 0).timestamp() * 1000  # ISO 8601
-    ros_ts_ms = Time.from_msg(ros_stamp).nanoseconds / 1e3  # epoch time
-    dm_time.value = int(ros_ts_ms - de_ts_ms)
+    de_ts = datetime.datetime(2004, 1, 1, 0, 0)  # ISO 8601
+    tmp = Time.from_msg(ros_stamp).nanoseconds/1e9
+    ros_ts = datetime.datetime.fromtimestamp(tmp)  # epoch time
+    time_diff = ros_ts - de_ts
+    dm_time.value = int(time_diff.total_seconds()*1e3)
     return dm_time
