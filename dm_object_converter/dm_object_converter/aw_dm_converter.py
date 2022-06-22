@@ -71,6 +71,7 @@ class AwDmConverter(Node):
                 # 物標参照位置 dm_object.ref_point.value = UNKNOWN
                 # 移動方向 Heading WGS84Angle
                 dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object.object)
+                dm_object.orientation = dm_object.direction
                 # 速さ Speed
                 dm_object.speed = aw_twist_to_dm_speed(aw_dynamic_object.object)
                 # 回転速度 YawRate

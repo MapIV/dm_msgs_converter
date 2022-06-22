@@ -133,7 +133,7 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
 
     dm_latitude.value =int(lat_deg * 1e7)
     dm_longitude.value = int(long_deg * 1e7)
-    dm_altitude.value = int(altitude * 1e2)
+    dm_altitude.value = int(dynamic_object.state.pose_covariance.pose.position.z * 1e2)
     dm_location.latitude = dm_latitude
     dm_location.longitude = dm_longitude
     dm_location.altitude = dm_altitude
