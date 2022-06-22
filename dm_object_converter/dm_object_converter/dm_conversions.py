@@ -111,23 +111,28 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
 
 def aw_position_to_dm_location(dynamic_object: DynamicObject,
                                altitude: float = ALTITUDE_UNAVAILABLE,
-                               plane_number: int = 7) -> Location:
+                               plane_number: int = 7,
+                               logger=None) -> Location:
     from dm_object_info_msgs.msg import Latitude
     from dm_object_info_msgs.msg import Longitude
     from dm_object_info_msgs.msg import Altitude
 
     dm_location = Location()
     dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
-    longi, lat  = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
+    lat_rad, long_rad  = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
                                y=dynamic_object.state.pose_covariance.pose.position.y,
                                plane_num=plane_number)
 
+    lat_deg = np.rad2deg(lat_rad)
+    long_deg = np.rad2deg(long_rad)
+    # logger.info("x: {:.4f},  y:{:.4f}".format(dynamic_object.state.pose_covariance.pose.position.y, dynamic_object.state.pose_covariance.pose.position.x))
+    # logger.info("lat: {:.4f},  long:{:.4f}".format(lat_deg,long_deg))
     dm_latitude = Latitude()
     dm_longitude = Longitude()
     dm_altitude = Altitude()
 
-    dm_latitude.value =int(lat * 1e7)
-    dm_longitude.value = int(longi * 1e7)
+    dm_latitude.value =int(lat_deg * 1e7)
+    dm_longitude.value = int(long_deg * 1e7)
     dm_altitude.value = int(altitude * 1e2)
     dm_location.latitude = dm_latitude
     dm_location.longitude = dm_longitude

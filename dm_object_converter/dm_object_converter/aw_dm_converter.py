@@ -42,6 +42,8 @@ class AwDmConverter(Node):
             'input',
             self.aw_perception_callback,
             10)
+        self.get_logger().info('Plane number: %d' % self._plane_number)
+        self.get_logger().info('Altitude: %.2f' % self._altitude)
 
     def aw_perception_callback(self, aw_msg: DynamicObjectWithFeatureArray):
         dm_object_info_array = ObjectInfoArray()
@@ -64,7 +66,8 @@ class AwDmConverter(Node):
                 # 物標位置
                 dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
                                                                        altitude=self._altitude,
-                                                                       plane_number=self._plane_number)
+                                                                       plane_number=self._plane_number,
+                                                                       logger=self.get_logger())
                 # 物標参照位置 dm_object.ref_point.value = UNKNOWN
                 # 移動方向 Heading WGS84Angle
                 dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object.object)
@@ -88,7 +91,8 @@ class AwDmConverter(Node):
                 # 車両用途種別毎の状態 dm_object.vehicle_extended_info = VehicleExtendedInformation.UNKNOWN
                 # 牽引車両 dm_object.towing_vehicle = ObjectId.UNKNOWN
             except Exception as e:
-                print("dm exception:", e)
+                self.get_logger().error("%s" % e)
+
             # 情報源のリスト
             data_source = ObjectId()
             data_source.value = VENDOR_ID
