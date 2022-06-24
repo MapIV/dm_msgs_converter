@@ -25,17 +25,16 @@ from autoware_perception_msgs.msg import DynamicObjectWithFeature
 
 from .dm_conversions import *
 
-VENDOR_ID = 777777
+VENDOR_ID = [0x77, 0x77, 0x77, 0x77]
+
 
 class AwDmConverter(Node):
 
     def __init__(self):
         super().__init__('aw_dm_converter')
         self._plane_number = self.declare_parameter('plane_number', 7).value
-        self._altitude = self.declare_parameter('altitude', 0.800001).value # Unknown
         self.dm_publisher_ = self.create_publisher(ObjectInfoArray, 'output', 10)
         # PARAMS:
-        # - altitude NMEA
         # - reference point (x, y, z)
         self.subscription = self.create_subscription(
             DynamicObjectWithFeatureArray,
@@ -43,16 +42,19 @@ class AwDmConverter(Node):
             self.aw_perception_callback,
             10)
         self.get_logger().info('Plane number: %d' % self._plane_number)
-        self.get_logger().info('Altitude: %.2f' % self._altitude)
 
     def aw_perception_callback(self, aw_msg: DynamicObjectWithFeatureArray):
+        from struct import unpack
         dm_object_info_array = ObjectInfoArray()
         for aw_dynamic_object in aw_msg.feature_objects:
             dm_object = ObjectInfo()
             try:
                 # 物標 ID REQUIRED
                 # AW uses uuid (big endian), but dm uses uint64, use only the 64 most significant bits
-                dm_object.id.value = int.from_bytes(aw_dynamic_object.object.id.uuid[:8], 'big')
+                #tmp_id = int(unpack('>Q', bytearray(reserved + aw_dynamic_object.object.id.uuid[:4].tolist() ))[0])
+
+                dm_object.id.value = int.from_bytes([0x80]+aw_dynamic_object.object.id.uuid[:3].tolist()+VENDOR_ID, signed=False, byteorder='big')
+                #self.get_logger().info("id: {:016x}".format(dm_object.id.value))
                 # 情報取得時刻［必須］Timestamp REQUIRED
                 # DE_TimestampIts: Number of milliseconds since 2004-01-01T00:00:00.000Z
                 dm_object.time = ros_stamp_to_de_time(aw_msg.header.stamp)
@@ -65,7 +67,6 @@ class AwDmConverter(Node):
                 dm_object.existency = existency
                 # 物標位置
                 dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
-                                                                       altitude=self._altitude,
                                                                        plane_number=self._plane_number,
                                                                        logger=self.get_logger())
                 # 物標参照位置 dm_object.ref_point.value = UNKNOWN
@@ -96,7 +97,8 @@ class AwDmConverter(Node):
 
             # 情報源のリスト
             data_source = ObjectId()
-            data_source.value = VENDOR_ID
+            data_source.value = int.from_bytes([0,0,0,0]+VENDOR_ID, signed=False, byteorder='big')
+            # self.get_logger().info("id: {:016x}".format(data_source.value))
             dm_object.information_source_list.append(data_source)
 
             # Add complete object to the array

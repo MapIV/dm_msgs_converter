@@ -110,7 +110,6 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
 
 
 def aw_position_to_dm_location(dynamic_object: DynamicObject,
-                               altitude: float = ALTITUDE_UNAVAILABLE,
                                plane_number: int = 7,
                                logger=None) -> Location:
     from dm_object_info_msgs.msg import Latitude
@@ -119,21 +118,22 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
 
     dm_location = Location()
     dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
-    lat_rad, long_rad  = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
-                               y=dynamic_object.state.pose_covariance.pose.position.y,
-                               plane_num=plane_number)
+    lat_rad, long_rad = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
+                                       y=dynamic_object.state.pose_covariance.pose.position.y,
+                                       plane_num=plane_number)
 
     lat_deg = np.rad2deg(lat_rad)
     long_deg = np.rad2deg(long_rad)
+    altitude_obj = dynamic_object.state.pose_covariance.pose.position.z + dynamic_object.shape.dimensions.z / 2
     # logger.info("x: {:.4f},  y:{:.4f}".format(dynamic_object.state.pose_covariance.pose.position.y, dynamic_object.state.pose_covariance.pose.position.x))
-    # logger.info("lat: {:.4f},  long:{:.4f}".format(lat_deg,long_deg))
+    # logger.info("lat: {:.4f},  long:{:.4f}, altitude: {:.4f}".format(lat_deg, long_deg, altitude_obj))
     dm_latitude = Latitude()
     dm_longitude = Longitude()
     dm_altitude = Altitude()
 
     dm_latitude.value =int(lat_deg * 1e7)
     dm_longitude.value = int(long_deg * 1e7)
-    dm_altitude.value = int(dynamic_object.state.pose_covariance.pose.position.z * 1e2)
+    dm_altitude.value = int(altitude_obj * 1e2)
     dm_location.latitude = dm_latitude
     dm_location.longitude = dm_longitude
     dm_location.altitude = dm_altitude
