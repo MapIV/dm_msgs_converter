@@ -42,8 +42,12 @@ class AwDmConverter(Node):
             self.aw_perception_callback,
             10)
         self.get_logger().info('Plane number: %d' % self._plane_number)
+        self.counter = 0
 
     def aw_perception_callback(self, aw_msg: DynamicObjectWithFeatureArray):
+        if self.counter < 5:
+            self.counter += 1
+            return
         from struct import unpack
         dm_object_info_array = ObjectInfoArray()
         for aw_dynamic_object in aw_msg.feature_objects:
@@ -68,10 +72,13 @@ class AwDmConverter(Node):
                 # 物標位置
                 dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
                                                                        plane_number=self._plane_number,
-                                                                       logger=self.get_logger())
+                                                                       # logger=self.get_logger()
+                                                                       )
                 # 物標参照位置 dm_object.ref_point.value = UNKNOWN
                 # 移動方向 Heading WGS84Angle
-                dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object.object)
+                dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object.object,
+                                                              # logger=self.get_logger()
+                                                              )
                 dm_object.orientation = dm_object.direction
                 # 速さ Speed
                 dm_object.speed = aw_twist_to_dm_speed(aw_dynamic_object.object)

@@ -77,7 +77,7 @@ def aw_twist_to_dm_speed(dynamic_object: DynamicObject) -> Speed:
     return speed
 
 
-def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
+def aw_pose_to_dm_direction(dynamic_object: DynamicObject, logger=None) -> WGS84Angle:
     from dm_object_info_msgs.msg import WGS84AngleAccuracy
     from dm_object_info_msgs.msg import WGS84AngleValue
     angle = WGS84Angle()
@@ -86,7 +86,8 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
                                                      dynamic_object.state.pose_covariance.pose.orientation.y,
                                                      dynamic_object.state.pose_covariance.pose.orientation.z,
                                                      dynamic_object.state.pose_covariance.pose.orientation.w])
-
+    if logger is not None:
+        logger.info("CLASS: {:}, roll: {:.4f},  pitch:{:.4f}, yaw: {:.4f}".format(dynamic_object.semantic.type, roll, pitch, yaw))
     # WGS84 測地系における方位。
     # 北を 0 とし，東回りで，0.01 度単位で表す。
     # 具体的な表現値は以下の通り。
@@ -101,7 +102,7 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject) -> WGS84Angle:
     # 36000: 使用しない
     # 36001: 不明
     dm_angle = WGS84AngleValue()
-    tmp = abs(int(math.degrees(yaw) * 100))
+    tmp = abs(int(math.degrees(-yaw+math.pi/2) * 100))
     dm_angle.value = tmp
     angle.value = dm_angle
     angle.accuracy.value = int(WGS84AngleAccuracy.MAX * 0.8)
@@ -126,7 +127,8 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
     long_deg = np.rad2deg(long_rad)
     altitude_obj = dynamic_object.state.pose_covariance.pose.position.z + dynamic_object.shape.dimensions.z / 2
     # logger.info("x: {:.4f},  y:{:.4f}".format(dynamic_object.state.pose_covariance.pose.position.y, dynamic_object.state.pose_covariance.pose.position.x))
-    # logger.info("lat: {:.4f},  long:{:.4f}, altitude: {:.4f}".format(lat_deg, long_deg, altitude_obj))
+    if logger is not None:
+        logger.info("lat: {:.4f},  long:{:.4f}, altitude: {:.4f}".format(lat_deg, long_deg, altitude_obj))
     dm_latitude = Latitude()
     dm_longitude = Longitude()
     dm_altitude = Altitude()
