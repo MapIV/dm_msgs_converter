@@ -72,12 +72,12 @@ class AwDmConverter(Node):
                 # 物標位置
                 dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
                                                                        plane_number=self._plane_number,
-                                                                       # logger=self.get_logger()
+                                                                       logger=self.get_logger()
                                                                        )
                 # 物標参照位置 dm_object.ref_point.value = UNKNOWN
                 # 移動方向 Heading WGS84Angle
                 dm_object.direction = aw_pose_to_dm_direction(aw_dynamic_object.object,
-                                                              # logger=self.get_logger()
+                                                              logger=self.get_logger()
                                                               )
                 dm_object.orientation = dm_object.direction
                 # 速さ Speed
