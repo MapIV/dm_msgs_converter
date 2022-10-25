@@ -148,6 +148,7 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
         x_center = dynamic_object.state.pose_covariance.pose.position.x
         y_center = dynamic_object.state.pose_covariance.pose.position.y
         z_center = dynamic_object.state.pose_covariance.pose.position.z
+        print(x_center, y_center, z_center)
 
         if math.pi/4 < yaw < 3*math.pi/4:
             # 0 to 45 deg, and 135 to 180 degrees header = side of the vehicle
@@ -157,8 +158,10 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
             # 45 to 135 degrees inclusively = front/back of the vehicle
             x_front = x_center + dynamic_object.shape.dimensions.x * math.cos(yaw) / 2
             y_front = y_center + dynamic_object.shape.dimensions.x * math.sin(yaw) / 2
+        z_bottom = z_center - dynamic_object.shape.dimensions.z / 2
         dynamic_object.state.pose_covariance.pose.position.x = x_front
         dynamic_object.state.pose_covariance.pose.position.y = y_front
+        reference_point_location = [x_front, y_front, z_center]
 
         dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
         lat_rad, long_rad = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
@@ -167,7 +170,7 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
 
         lat_deg = np.rad2deg(lat_rad)
         long_deg = np.rad2deg(long_rad)
-        altitude_obj = dynamic_object.state.pose_covariance.pose.position.z + dynamic_object.shape.dimensions.z / 2 ## shouldn't this be -height/2?
+        altitude_obj = z_bottom
 
         # if logger is not None:
         #     logger.info("x: {:.4f},  y:{:.4f}".format(dynamic_object.state.pose_covariance.pose.position.y, dynamic_object.state.pose_covariance.pose.position.x))
@@ -176,7 +179,7 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
         dm_longitude = Longitude()
         dm_altitude = Altitude()
 
-        dm_latitude.value =int(lat_deg * 1e7)
+        dm_latitude.value = int(lat_deg * 1e7)
         dm_longitude.value = int(long_deg * 1e7)
         dm_altitude.value = int(altitude_obj * 1e2)
         dm_location.latitude = dm_latitude
@@ -206,7 +209,7 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
         if logger is not None:
             logger.error("aw_position_to_dm_location: %s" % e)
 
-    return dm_location
+    return dm_location, reference_point_location
 
 
 def aw_class_to_dm_object_class(dynamic_object: DynamicObject, logger=None) -> (ObjectClass, int):

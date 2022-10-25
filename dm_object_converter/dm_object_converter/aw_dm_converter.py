@@ -5,6 +5,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Header
+from visualization_msgs.msg import Marker, MarkerArray
 
 import dm_object_info_msgs.msg
 from dm_object_info_msgs.msg import ObjectId
@@ -33,7 +34,9 @@ class AwDmConverter(Node):
     def __init__(self):
         super().__init__('aw_dm_converter')
         self._plane_number = self.declare_parameter('plane_number', 7).value
+        self._lidar_yaw = self.declare_parameter('lidar_yaw', 0.0).value
         self.dm_publisher_ = self.create_publisher(ObjectInfoArray, 'output', 10)
+        self.debug_publisher = self.create_publisher(MarkerArray, 'debug/ref_pt', 10)
         # PARAMS:
         # - reference point (x, y, z)
         self.subscription = self.create_subscription(
@@ -42,7 +45,18 @@ class AwDmConverter(Node):
             self.aw_perception_callback,
             10)
         self.get_logger().info('Plane number: %d' % self._plane_number)
+        self.get_logger().info('LiDAR yaw: %f' % self._lidar_yaw)
         self.counter = 0
+
+    def create_debug_marker(self, location, header):
+        centroid_marker = Marker()
+        centroid_marker.header = header
+        centroid_marker.pose = location
+        centroid_marker.scale.x, centroid_marker.scale.x, centroid_marker.scale.x = 0.2, 0.2, 0.2
+        centroid_marker.color.r, centroid_marker.color.g, centroid_marker.color.b, centroid_marker.color.a = 1, 0, 0, 0
+        centroid_marker.lifetime = 1
+        centroid_marker.type = 2
+        return centroid_marker
 
     def aw_perception_callback(self, aw_msg: DynamicObjectWithFeatureArray):
         if self.counter < 5:
@@ -50,6 +64,7 @@ class AwDmConverter(Node):
             return
         from struct import unpack
         dm_object_info_array = ObjectInfoArray()
+        ref_pts_array = MarkerArray()
         for aw_dynamic_object in aw_msg.feature_objects:
             dm_object = ObjectInfo()
             try:
@@ -70,10 +85,12 @@ class AwDmConverter(Node):
                 existency.value = confidence
                 dm_object.existency = existency
                 # 物標位置
-                dm_object.object_location = aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
-                                                                       plane_number=self._plane_number,
-                                                                       logger=self.get_logger()
-                                                                       )
+                dm_object.object_location, reference_point = \
+                    aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
+                                               plane_number=self._plane_number,
+                                               logger=self.get_logger()
+                                               )
+                ref_pts_array.append(self.create_debug_marker(reference_point, aw_msg.header))
                 # dm_object.ref_point.value = ??
 
                 # 物標参照位置 dm_object.ref_point.value = UNKNOWN
@@ -114,6 +131,7 @@ class AwDmConverter(Node):
             dm_object_info_array.array.append(dm_object)
         # end foreach
         self.dm_publisher_.publish(dm_object_info_array)
+        self.debug_publisher.publish(ref_pts_array)
 
 
 def main(args=None):
