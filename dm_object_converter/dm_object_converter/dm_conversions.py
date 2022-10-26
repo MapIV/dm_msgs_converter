@@ -131,6 +131,7 @@ def aw_pose_to_dm_direction(dynamic_object: DynamicObject, logger=None) -> WGS84
 
 def aw_position_to_dm_location(dynamic_object: DynamicObject,
                                plane_number: int = 7,
+                               lidar_offset: float = 0.0,
                                logger=None) -> Location:
     from dm_object_info_msgs.msg import Latitude
     from dm_object_info_msgs.msg import Longitude
@@ -143,25 +144,51 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
                                                   dynamic_object.state.pose_covariance.pose.orientation.y,
                                                   dynamic_object.state.pose_covariance.pose.orientation.z,
                                                   dynamic_object.state.pose_covariance.pose.orientation.w])
-        # Absolute yaw should always give us the point nearest the smartpole (0, 180)
-        yaw = abs(((-yaw + math.pi) % (2.0 * math.pi) - math.pi) * -1.0)
         x_center = dynamic_object.state.pose_covariance.pose.position.x
         y_center = dynamic_object.state.pose_covariance.pose.position.y
         z_center = dynamic_object.state.pose_covariance.pose.position.z
-        print(x_center, y_center, z_center)
-
-        if math.pi/4 < yaw < 3*math.pi/4:
-            # 0 to 45 deg, and 135 to 180 degrees header = side of the vehicle
-            x_front = x_center + dynamic_object.shape.dimensions.y * math.sin(yaw) / 2
-            y_front = y_center + dynamic_object.shape.dimensions.y * math.cos(yaw) / 2
-        else:
-            # 45 to 135 degrees inclusively = front/back of the vehicle
-            x_front = x_center + dynamic_object.shape.dimensions.x * math.cos(yaw) / 2
-            y_front = y_center + dynamic_object.shape.dimensions.x * math.sin(yaw) / 2
+        speed = math.sqrt(dynamic_object.state.twist_covariance.twist.linear.x ** 2 + \
+                          dynamic_object.state.twist_covariance.twist.linear.y ** 2 + \
+                          dynamic_object.state.twist_covariance.twist.linear.z ** 2)
         z_bottom = z_center - dynamic_object.shape.dimensions.z / 2
-        dynamic_object.state.pose_covariance.pose.position.x = x_front
-        dynamic_object.state.pose_covariance.pose.position.y = y_front
-        reference_point_location = [x_front, y_front, z_center]
+        smartpole_yaw = (-(yaw+lidar_offset + math.pi) % (2.0 * math.pi) - math.pi) * -1.0
+
+        if dynamic_object.semantic.type == 6 or speed < 0.05:       # pedestrian should be set to center
+            reference_point_location = [x_center, y_center, z_bottom]
+            x_front, y_front, z_bottom = x_center, y_center, z_center
+            reference_point_id = 1
+        else: # Other objects types are orientation dependent.
+            if -math.pi/4 <= smartpole_yaw <= math.pi/4:
+                # # Car is moving perpendicular to the left
+                x_front = x_center + dynamic_object.shape.dimensions.y * math.sin(yaw) / 2
+                y_front = y_center + dynamic_object.shape.dimensions.y * math.cos(yaw) / 2
+                reference_point_id = 5
+            elif math.pi/4 <= smartpole_yaw <= 3*math.pi/4:
+                # Car is moving towards the smartpole
+                x_front = x_center + dynamic_object.shape.dimensions.x * math.cos(yaw) / 2
+                y_front = y_center + dynamic_object.shape.dimensions.x * math.sin(yaw) / 2
+                reference_point_id = 2
+            elif -3*math.pi/4 <= smartpole_yaw <= -math.pi/4:
+                # Car moving directly away from the smartpole
+                reference_point_id = 3
+                x_front = x_center + dynamic_object.shape.dimensions.x * math.cos(yaw + math.pi) / 2
+                y_front = y_center + dynamic_object.shape.dimensions.x * math.sin(yaw + math.pi) / 2
+            else:
+                # Car is moving perpendicular to the right
+                x_front = x_center + dynamic_object.shape.dimensions.y * math.sin(yaw + math.pi) / 2
+                y_front = y_center + dynamic_object.shape.dimensions.y * math.cos(yaw + math.pi) / 2
+                reference_point_id = 4
+            reference_point_location = [x_front, y_front, z_bottom]
+
+        ### DEBUG INFORMATION
+        # if dynamic_object.semantic.type != 0 and speed > 2:
+        #     logger.info("class: {}".format(dynamic_object.semantic.type))
+        #     logger.info("speed: {}".format(speed))
+        #     logger.info("xyz center: {}, {}, {}".format(x_center, y_center, z_center))
+        #     logger.info("xyz ref: {}, {}, {}".format(x_front, y_front, z_bottom))
+        #     logger.info("rpy: {}, {}, {}".format(roll, pitch, yaw))
+        #     logger.info("ref id: {}, actual yaw: {}".format(reference_point_id, smartpole_yaw))
+        #     logger.info("--------------------------")
 
         dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
         lat_rad, long_rad = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
@@ -209,7 +236,7 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
         if logger is not None:
             logger.error("aw_position_to_dm_location: %s" % e)
 
-    return dm_location, reference_point_location
+    return dm_location, reference_point_location, reference_point_id
 
 
 def aw_class_to_dm_object_class(dynamic_object: DynamicObject, logger=None) -> (ObjectClass, int):

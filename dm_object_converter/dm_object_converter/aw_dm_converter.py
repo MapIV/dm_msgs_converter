@@ -2,6 +2,7 @@
 
 import rclpy
 
+from rclpy.duration import Duration
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Header
@@ -23,6 +24,7 @@ from dm_object_info_msgs.msg import ExistenceConfidence
 
 from autoware_perception_msgs.msg import DynamicObjectWithFeatureArray
 from autoware_perception_msgs.msg import DynamicObjectWithFeature
+from autoware_perception_msgs.msg import Semantic
 
 from .dm_conversions import *
 
@@ -47,16 +49,21 @@ class AwDmConverter(Node):
         self.get_logger().info('Plane number: %d' % self._plane_number)
         self.get_logger().info('LiDAR yaw: %f' % self._lidar_yaw)
         self.counter = 0
+        self.marker_counter = 0
 
-    def create_debug_marker(self, location, header):
-        centroid_marker = Marker()
-        centroid_marker.header = header
-        centroid_marker.pose = location
-        centroid_marker.scale.x, centroid_marker.scale.x, centroid_marker.scale.x = 0.2, 0.2, 0.2
-        centroid_marker.color.r, centroid_marker.color.g, centroid_marker.color.b, centroid_marker.color.a = 1, 0, 0, 0
-        centroid_marker.lifetime = 1
-        centroid_marker.type = 2
-        return centroid_marker
+    def create_debug_marker(self, point, header, id):
+        ref_marker = Marker()
+        ref_marker.header = header
+        ref_marker.ns = 'smartpole'
+        ref_marker.id = self.marker_counter
+        ref_marker.pose.position.x, ref_marker.pose.position.y, ref_marker.pose.position.z = point[0], point[1], point[2]
+        ref_marker.scale.x, ref_marker.scale.y, ref_marker.scale.z = 0.4, 0.4, 0.4
+        ref_marker.color.r, ref_marker.color.g, ref_marker.color.b, ref_marker.color.a = 1.0, 0.0, 0.0, 1.0
+        ref_marker.lifetime = Duration(seconds=2).to_msg()
+        ref_marker.type = 9
+        ref_marker.text = str(id)
+        self.marker_counter += 1
+        return ref_marker
 
     def aw_perception_callback(self, aw_msg: DynamicObjectWithFeatureArray):
         if self.counter < 5:
@@ -85,13 +92,15 @@ class AwDmConverter(Node):
                 existency.value = confidence
                 dm_object.existency = existency
                 # 物標位置
-                dm_object.object_location, reference_point = \
+                dm_object.object_location, reference_point, reference_point_id = \
                     aw_position_to_dm_location(dynamic_object=aw_dynamic_object.object,
                                                plane_number=self._plane_number,
+                                               lidar_offset=self._lidar_yaw,
                                                logger=self.get_logger()
                                                )
-                ref_pts_array.append(self.create_debug_marker(reference_point, aw_msg.header))
-                # dm_object.ref_point.value = ??
+                if aw_dynamic_object.object.semantic.type != Semantic.UNKNOWN:
+                    ref_pts_array.markers.append(self.create_debug_marker(reference_point, aw_msg.header, reference_point_id))
+                dm_object.ref_point.value = reference_point_id
 
                 # 物標参照位置 dm_object.ref_point.value = UNKNOWN
                 # 移動方向 Heading WGS84Angle
@@ -132,7 +141,6 @@ class AwDmConverter(Node):
         # end foreach
         self.dm_publisher_.publish(dm_object_info_array)
         self.debug_publisher.publish(ref_pts_array)
-
 
 def main(args=None):
     rclpy.init(args=args)
