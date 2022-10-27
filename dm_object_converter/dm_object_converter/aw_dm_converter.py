@@ -60,7 +60,8 @@ class AwDmConverter(Node):
         ref_marker.scale.x, ref_marker.scale.y, ref_marker.scale.z = 0.4, 0.4, 0.4
         ref_marker.color.r, ref_marker.color.g, ref_marker.color.b, ref_marker.color.a = 1.0, 0.0, 0.0, 1.0
         ref_marker.lifetime = Duration(seconds=2).to_msg()
-        ref_marker.type = 9
+        # ref_marker.type = 9
+        ref_marker.type = 2
         ref_marker.text = str(id)
         self.marker_counter += 1
         return ref_marker
