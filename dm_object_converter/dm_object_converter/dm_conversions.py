@@ -3,6 +3,7 @@
 import datetime
 import math
 
+import numpy as np
 from rclpy.time import Time
 import dm_object_info_msgs.msg
 from autoware_perception_msgs.msg import DynamicObject
@@ -138,103 +139,101 @@ def aw_position_to_dm_location(dynamic_object: DynamicObject,
     from dm_object_info_msgs.msg import Altitude
 
     dm_location = Location()
-    try:
-        # Get yaw information
-        roll, pitch, yaw = euler_from_quaternion([dynamic_object.state.pose_covariance.pose.orientation.x,
-                                                  dynamic_object.state.pose_covariance.pose.orientation.y,
-                                                  dynamic_object.state.pose_covariance.pose.orientation.z,
-                                                  dynamic_object.state.pose_covariance.pose.orientation.w])
-        x_center = dynamic_object.state.pose_covariance.pose.position.x
-        y_center = dynamic_object.state.pose_covariance.pose.position.y
-        z_center = dynamic_object.state.pose_covariance.pose.position.z
-        speed = math.sqrt(dynamic_object.state.twist_covariance.twist.linear.x ** 2 + \
-                          dynamic_object.state.twist_covariance.twist.linear.y ** 2 + \
-                          dynamic_object.state.twist_covariance.twist.linear.z ** 2)
-        z_bottom = z_center - dynamic_object.shape.dimensions.z / 2
-        smartpole_yaw = (-(yaw+lidar_offset + math.pi) % (2.0 * math.pi) - math.pi) * -1.0
+    # try:
+    # Get yaw information
+    roll, pitch, yaw = euler_from_quaternion([dynamic_object.state.pose_covariance.pose.orientation.x,
+                                              dynamic_object.state.pose_covariance.pose.orientation.y,
+                                              dynamic_object.state.pose_covariance.pose.orientation.z,
+                                              dynamic_object.state.pose_covariance.pose.orientation.w])
+    x_center = dynamic_object.state.pose_covariance.pose.position.x
+    y_center = dynamic_object.state.pose_covariance.pose.position.y
+    z_center = dynamic_object.state.pose_covariance.pose.position.z
+    z_bottom = z_center - dynamic_object.shape.dimensions.z / 2
+    speed = math.sqrt(dynamic_object.state.twist_covariance.twist.linear.x ** 2 + \
+                      dynamic_object.state.twist_covariance.twist.linear.y ** 2 + \
+                      dynamic_object.state.twist_covariance.twist.linear.z ** 2)
 
-        if dynamic_object.semantic.type == 6 or speed < 0.05:       # pedestrian should be set to center
-            reference_point_location = [x_center, y_center, z_bottom]
-            x_front, y_front, z_bottom = x_center, y_center, z_center
-            reference_point_id = 1
-        else: # Other objects types are orientation dependent.
-            if -math.pi/4 <= smartpole_yaw <= math.pi/4:
-                # # Car is moving perpendicular to the left
-                x_front = x_center + dynamic_object.shape.dimensions.y * math.sin(yaw) / 2
-                y_front = y_center + dynamic_object.shape.dimensions.y * math.cos(yaw) / 2
-                reference_point_id = 5
-            elif math.pi/4 <= smartpole_yaw <= 3*math.pi/4:
-                # Car is moving towards the smartpole
-                x_front = x_center + dynamic_object.shape.dimensions.x * math.cos(yaw) / 2
-                y_front = y_center + dynamic_object.shape.dimensions.x * math.sin(yaw) / 2
-                reference_point_id = 2
-            elif -3*math.pi/4 <= smartpole_yaw <= -math.pi/4:
-                # Car moving directly away from the smartpole
-                reference_point_id = 3
-                x_front = x_center + dynamic_object.shape.dimensions.x * math.cos(yaw + math.pi) / 2
-                y_front = y_center + dynamic_object.shape.dimensions.x * math.sin(yaw + math.pi) / 2
-            else:
-                # Car is moving perpendicular to the right
-                x_front = x_center + dynamic_object.shape.dimensions.y * math.sin(yaw + math.pi) / 2
-                y_front = y_center + dynamic_object.shape.dimensions.y * math.cos(yaw + math.pi) / 2
-                reference_point_id = 4
-            reference_point_location = [x_front, y_front, z_bottom]
+    smartpole_yaw = (-(yaw+lidar_offset + math.pi) % (2.0 * math.pi) - math.pi) * -1.0
+    rot = np.array([[np.cos(yaw), np.sin(yaw)], [-np.sin(yaw), np.cos(yaw)]])
+    reference_point_location = [x_center, y_center, z_bottom]
 
-        ### DEBUG INFORMATION
-        # if dynamic_object.semantic.type != 0 and speed > 2:
-        #     logger.info("class: {}".format(dynamic_object.semantic.type))
-        #     logger.info("speed: {}".format(speed))
-        #     logger.info("xyz center: {}, {}, {}".format(x_center, y_center, z_center))
-        #     logger.info("xyz ref: {}, {}, {}".format(x_front, y_front, z_bottom))
-        #     logger.info("rpy: {}, {}, {}".format(roll, pitch, yaw))
-        #     logger.info("ref id: {}, actual yaw: {}".format(reference_point_id, smartpole_yaw))
-        #     logger.info("--------------------------")
+    if dynamic_object.semantic.type == 6 or speed < 0.05:       # pedestrian should be set to center
+        reference_point_id = 1
+    else:   # Other objects types are orientation dependent.
+        if -math.pi/4 <= smartpole_yaw <= math.pi/4:
+            # # Car is moving perpendicular to the left
+            ref = np.matmul(np.array([[0, dynamic_object.shape.dimensions.y / 2]]), rot)
+            reference_point_id = 5
+        elif math.pi/4 <= smartpole_yaw <= 3*math.pi/4:
+            # Car is moving towards the smartpole
+            ref = np.matmul(np.array([[dynamic_object.shape.dimensions.x / 2, 0]]), rot)
+            reference_point_id = 2
+        elif -3*math.pi/4 <= smartpole_yaw <= -math.pi/4:
+            # Car moving directly away from the smartpole
+            ref = np.matmul(np.array([[-dynamic_object.shape.dimensions.x / 2, 0]]), rot)
+            reference_point_id = 3
+        else:
+            # Car is moving perpendicular to the right
+            ref = np.matmul(np.array([[0, -dynamic_object.shape.dimensions.y / 2]]), rot)
+            reference_point_id = 4
+        reference_point_location = [x_center+ref[0, 0], y_center+ref[0, 1], z_bottom]
 
-        dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
-        lat_rad, long_rad = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
-                                           y=dynamic_object.state.pose_covariance.pose.position.y,
-                                           plane_num=plane_number)
+    ### DEBUG INFORMATION
+    # if dynamic_object.semantic.type != 0 and speed > 2:
+    #     logger.info("obj id: {}, class id: {}".format(dynamic_object.id, dynamic_object.semantic.type))
+    #     logger.info("speed: {}".format(speed))
+    #     logger.info("xyz center: {}, {}, {}".format(x_center, y_center, z_center))
+    #     logger.info("xyz ref: {}, {}, {}".format(reference_point_location[0], reference_point_location[1], reference_point_location[3]))
+    #     logger.info("dim: {}, {}, {}".format(dynamic_object.shape.dimensions.x, dynamic_object.shape.dimensions.y, dynamic_object.shape.dimensions.z))
+    #     logger.info("rpy: {}, {}, {}".format(roll, pitch, yaw))
+    #     logger.info("ref id: {}, actual yaw: {}".format(reference_point_id, smartpole_yaw))
+    #     logger.info("--------------------------")
 
-        lat_deg = np.rad2deg(lat_rad)
-        long_deg = np.rad2deg(long_rad)
-        altitude_obj = z_bottom
+    dm_location.geodetic_system.value = dm_object_info_msgs.msg.GeodeticSystem.WGS84
+    lat_rad, long_rad = xyp_to_lat_lon(x=dynamic_object.state.pose_covariance.pose.position.x,
+                                       y=dynamic_object.state.pose_covariance.pose.position.y,
+                                       plane_num=plane_number)
 
-        # if logger is not None:
-        #     logger.info("x: {:.4f},  y:{:.4f}".format(dynamic_object.state.pose_covariance.pose.position.y, dynamic_object.state.pose_covariance.pose.position.x))
-        #     logger.info("lat: {:.4f},  long:{:.4f}, altitude: {:.4f}".format(lat_deg, long_deg, altitude_obj))
-        dm_latitude = Latitude()
-        dm_longitude = Longitude()
-        dm_altitude = Altitude()
+    lat_deg = np.rad2deg(lat_rad)
+    long_deg = np.rad2deg(long_rad)
+    altitude_obj = z_bottom
 
-        dm_latitude.value = int(lat_deg * 1e7)
-        dm_longitude.value = int(long_deg * 1e7)
-        dm_altitude.value = int(altitude_obj * 1e2)
-        dm_location.latitude = dm_latitude
-        dm_location.longitude = dm_longitude
-        dm_location.altitude = dm_altitude
+    # if logger is not None:
+    #     logger.info("x: {:.4f},  y:{:.4f}".format(dynamic_object.state.pose_covariance.pose.position.y, dynamic_object.state.pose_covariance.pose.position.x))
+    #     logger.info("lat: {:.4f},  long:{:.4f}, altitude: {:.4f}".format(lat_deg, long_deg, altitude_obj))
+    dm_latitude = Latitude()
+    dm_longitude = Longitude()
+    dm_altitude = Altitude()
 
-        # TODO: DISTANCE from sensor?
-        dm_location.crp_id.value = 0  # Unknown
-        dm_location.dx_crp.value = 0 # int(dynamic_object.state.pose_covariance.pose.position.x * 1e6)
-        dm_location.dy_crp.value = 0 # int(dynamic_object.state.pose_covariance.pose.position.y * 1e6)
+    dm_latitude.value = int(lat_deg * 1e7)
+    dm_longitude.value = int(long_deg * 1e7)
+    dm_altitude.value = int(altitude_obj * 1e2)
+    dm_location.latitude = dm_latitude
+    dm_location.longitude = dm_longitude
+    dm_location.altitude = dm_altitude
 
-        # dm_location.lane_count.value =
-        # dm_location.lane_position.value =
-        # dm_location.lane_lateral_position.value
-        # dm_location.lane_id.value =
+    # TODO: DISTANCE from sensor?
+    dm_location.crp_id.value = 0  # Unknown
+    dm_location.dx_crp.value = 0  # int(dynamic_object.state.pose_covariance.pose.position.x * 1e6)
+    dm_location.dy_crp.value = 0  # int(dynamic_object.state.pose_covariance.pose.position.y * 1e6)
 
-        # dm_location.dx_lane =
-        # dm_location.dh_lane =
-        # dm_location.dh_lane =
+    # dm_location.lane_count.value =
+    # dm_location.lane_position.value =
+    # dm_location.lane_lateral_position.value
+    # dm_location.lane_id.value =
 
-        # dm_location.semi_axis_length_major.value =
-        # dm_location.semi_axis_length_minor.value =
+    # dm_location.dx_lane =
+    # dm_location.dh_lane =
+    # dm_location.dh_lane =
 
-        # dm_location.orientation.value =
-        # dm_location.altitude_accuracy.value =
-    except Exception as e:
-        if logger is not None:
-            logger.error("aw_position_to_dm_location: %s" % e)
+    # dm_location.semi_axis_length_major.value =
+    # dm_location.semi_axis_length_minor.value =
+
+    # dm_location.orientation.value =
+    # dm_location.altitude_accuracy.value =
+    # except Exception as e:
+    #     if logger is not None:
+    #         logger.error("aw_position_to_dm_location: %s" % e)
 
     return dm_location, reference_point_location, reference_point_id
 
