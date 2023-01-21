@@ -272,7 +272,7 @@ def ros_stamp_to_de_time(ros_stamp: Time, logger=None) -> TimestampIts:
         tmp = Time.from_msg(ros_stamp).nanoseconds/1e9
         ros_ts = datetime.datetime.fromtimestamp(tmp)  # epoch time
         time_diff = ros_ts - de_ts
-        dm_time.value = int(time_diff.total_seconds()*1e3)
+        dm_time.value = int(time_diff.total_seconds()*1e3)-32400000+5000
     except Exception as e:
         if logger is not None:
             logger.error("ros_stamp_to_de_time: %s" % e)
